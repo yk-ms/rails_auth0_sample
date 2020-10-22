@@ -1,0 +1,33 @@
+FROM node:12.16.2 as node
+FROM ruby:2.7.2
+ENV RUBYOPT -EUTF-8
+ENV LANG C.UTF-8
+
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+    bash \
+    build-essential \
+    libpq-dev \
+    mariadb-client \
+    libfontconfig1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN sh -c 'wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -' && \
+    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
+    apt-get update && apt-get install -y google-chrome-stable
+
+ENV YARN_VERSION 1.22.4
+
+COPY --from=node /opt/yarn-v$YARN_VERSION /opt/yarn
+COPY --from=node /usr/local/bin/node /usr/local/bin/
+
+RUN ln -s /opt/yarn/bin/yarn /usr/local/bin/yarn \
+    && ln -s /opt/yarn/bin/yarnpkg /usr/local/bin/yarnpkg
+
+RUN mkdir /app
+WORKDIR /app
+
+## bundle install
+ADD Gemfile /app/Gemfile
+ADD Gemfile.lock /app/Gemfile.lock
+RUN bundle install --path=.bundle --jobs 4
